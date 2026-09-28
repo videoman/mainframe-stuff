@@ -143,6 +143,12 @@ def analyze(records):
         if reasons:
             crackable.append((pw, reasons))
 
+    # Top 5 most common passwords at each of these lengths
+    top_by_length = {}
+    for length in (6, 7, 8):
+        c = Counter(pw for pw in passwords if len(pw) == length)
+        top_by_length[length] = c.most_common(5)
+
     return {
         "total": total,
         "unique_passwords": len(pw_counts),
@@ -154,6 +160,7 @@ def analyze(records):
         "under_8_count": len(under_8),
         "crackable": crackable,
         "crackable_count": len(crackable),
+        "top_by_length": top_by_length,
     }
 
 
@@ -184,6 +191,16 @@ def print_summary(a):
             if c > 1:
                 print(f"    {c:>5}x  {pw}")
         print("=" * 60)
+
+    for length in (6, 7, 8):
+        entries = a["top_by_length"].get(length, [])
+        print(f"  Top 5 {length}-character passwords:")
+        if entries:
+            for pw, c in entries:
+                print(f"    {c:>5}x  {pw}")
+        else:
+            print("    (none)")
+    print("=" * 60)
 
 
 def write_csv(a, base):
@@ -217,7 +234,20 @@ def write_csv(a, base):
         w.writerow(["exactly_one_number", a["one_number_count"], pct(a["one_number_count"], t)])
         w.writerow(["under_8_chars", a["under_8_count"], pct(a["under_8_count"], t)])
 
-    return [summary_path, reuse_path, crack_path]
+    # Top 5 by length (6/7/8)
+    length_path = f"{base}_top_by_length.csv"
+    with open(length_path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        w.writerow(["length", "rank", "password", "times_used"])
+        for length in (6, 7, 8):
+            entries = a["top_by_length"].get(length, [])
+            if not entries:
+                w.writerow([length, "", "(none)", 0])
+                continue
+            for rank, (pw, c) in enumerate(entries, start=1):
+                w.writerow([length, rank, pw, c])
+
+    return [summary_path, reuse_path, crack_path, length_path]
 
 
 def write_html(a, base):
@@ -236,6 +266,20 @@ def write_html(a, base):
         f"<tr><td class='pw'>{e(pw)}</td><td>{e('; '.join(r))}</td></tr>"
         for pw, r in sorted(a["crackable"], key=lambda x: x[0])
     ) or "<tr><td colspan='2'>None flagged.</td></tr>"
+
+    length_blocks = ""
+    for length in (6, 7, 8):
+        entries = a["top_by_length"].get(length, [])
+        rows = "\n".join(
+            f"<tr><td class='num'>{rank}</td><td class='pw'>{e(pw)}</td><td class='num'>{c}</td></tr>"
+            for rank, (pw, c) in enumerate(entries, start=1)
+        ) or "<tr><td colspan='3'>None.</td></tr>"
+        length_blocks += f"""
+<h2>Top 5 {length}-Character Passwords</h2>
+<table>
+<tr><th>Rank</th><th>Password</th><th>Times Used</th></tr>
+{rows}
+</table>"""
 
     doc = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
@@ -276,6 +320,7 @@ def write_html(a, base):
 <tr><th>Password</th><th>Reasons</th></tr>
 {crack_rows}
 </table>
+{length_blocks}
 </body></html>"""
 
     path = f"{base}.html"
